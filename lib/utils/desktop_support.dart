@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:proxypin/ui/configuration.dart';
+import 'package:proxypin/ui/desktop/window_listener.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../network/util/logger.dart';
