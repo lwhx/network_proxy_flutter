@@ -103,6 +103,12 @@ class AppConfiguration {
   //左侧面板占比
   double panelRatio = 0.3;
 
+  /// 关闭窗口时最小化到系统托盘
+  bool minimizeToTray = false;
+
+  /// 首次关闭时是否已经提示过最小化到托盘
+  bool? minimizeToTrayPromptShown;
+
   AppConfiguration._();
 
   /// 单例
@@ -222,6 +228,8 @@ class AppConfiguration {
       if (config['panelRatio'] != null) {
         panelRatio = config['panelRatio'];
       }
+      minimizeToTray = config['minimizeToTray'] ?? false;
+      minimizeToTrayPromptShown = config['minimizeToTrayPromptShown'];
     } catch (e) {
       logger.e(e);
     }
@@ -266,6 +274,8 @@ class AppConfiguration {
       if (Platforms.isDesktop())
         "windowPosition": windowPosition == null ? null : {"dx": windowPosition?.dx, "dy": windowPosition?.dy},
       if (Platforms.isDesktop()) 'panelRatio': panelRatio,
+      if (Platforms.isDesktop()) 'minimizeToTray': minimizeToTray,
+      if (Platforms.isDesktop() && minimizeToTrayPromptShown != null) 'minimizeToTrayPromptShown': minimizeToTrayPromptShown,
     };
   }
 }
