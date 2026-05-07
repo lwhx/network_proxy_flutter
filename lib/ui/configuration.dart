@@ -104,10 +104,7 @@ class AppConfiguration {
   double panelRatio = 0.3;
 
   /// 关闭窗口时最小化到系统托盘
-  bool minimizeToTray = false;
-
-  /// 首次关闭时是否已经提示过最小化到托盘
-  bool? minimizeToTrayPromptShown;
+  bool? minimizeToTray;
 
   AppConfiguration._();
 
@@ -206,12 +203,9 @@ class AppConfiguration {
       _theme.color = config['themeColor'] ?? "Blue";
 
       upgradeNoticeV27 = config['upgradeNoticeV27'] ?? true;
-      _language = config['language'] == null 
-        ? null 
-        : Locale.fromSubtags(
-            languageCode: config['language'], 
-            scriptCode: config['languageScript']
-          );
+      _language = config['language'] == null
+          ? null
+          : Locale.fromSubtags(languageCode: config['language'], scriptCode: config['languageScript']);
       pipEnabled.value = config['pipEnabled'] ?? true;
       pipIcon.value = config['pipIcon'] ?? false;
       headerExpanded = config['headerExpanded'] ?? true;
@@ -228,8 +222,7 @@ class AppConfiguration {
       if (config['panelRatio'] != null) {
         panelRatio = config['panelRatio'];
       }
-      minimizeToTray = config['minimizeToTray'] ?? false;
-      minimizeToTrayPromptShown = config['minimizeToTrayPromptShown'];
+      minimizeToTray = config['minimizeToTray'];
     } catch (e) {
       logger.e(e);
     }
@@ -275,7 +268,6 @@ class AppConfiguration {
         "windowPosition": windowPosition == null ? null : {"dx": windowPosition?.dx, "dy": windowPosition?.dy},
       if (Platforms.isDesktop()) 'panelRatio': panelRatio,
       if (Platforms.isDesktop()) 'minimizeToTray': minimizeToTray,
-      if (Platforms.isDesktop() && minimizeToTrayPromptShown != null) 'minimizeToTrayPromptShown': minimizeToTrayPromptShown,
     };
   }
 }

@@ -127,7 +127,7 @@ class _PreferenceState extends State<Preference> {
                   subtitle: Text(localizations.minimizeToTraySubtitle, style: subtitleStyle),
                   trailing: SwitchWidget(
                       scale: 0.75,
-                      value: appConfiguration.minimizeToTray,
+                      value: appConfiguration.minimizeToTray ?? false,
                       onChanged: (value) {
                         appConfiguration.minimizeToTray = value;
                         appConfiguration.flushConfig();

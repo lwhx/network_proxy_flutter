@@ -106,14 +106,14 @@ class _SocketLaunchState extends State<SocketLaunch> with WindowListener, Widget
 
   Future<void> _handleWindowClose() async {
     final appConfiguration = AppConfiguration.current;
-    if (Platforms.isDesktop() && appConfiguration?.minimizeToTray == true) {
-      if (appConfiguration?.minimizeToTrayPromptShown == null) {
+    if (Platforms.isDesktop() && appConfiguration?.minimizeToTray == null || appConfiguration?.minimizeToTray == true) {
+      if (appConfiguration?.minimizeToTray == null) {
         final minimize = await _showTrayClosePrompt();
         if (!mounted) {
           return;
         }
 
-        appConfiguration?.minimizeToTrayPromptShown = true;
+        appConfiguration?.minimizeToTray = minimize;
         await appConfiguration?.flushConfig();
 
         if (!minimize) {
@@ -129,6 +129,7 @@ class _SocketLaunchState extends State<SocketLaunch> with WindowListener, Widget
         logger.e('show to tray failed, fallback to exit', error: e);
       }
     }
+
     await appExit();
   }
 
@@ -139,9 +140,7 @@ class _SocketLaunchState extends State<SocketLaunch> with WindowListener, Widget
           builder: (ctx) {
             return AlertDialog(
               title: Text(localizations.minimizeToTrayTitle),
-              content: SizedBox(
-                  width: 320,
-                  child: Text(maxLines: 3, localizations.trayClosePromptContent)),
+              content: SizedBox(width: 320, child: Text(maxLines: 3, localizations.trayClosePromptContent)),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(false),
@@ -181,7 +180,10 @@ class _SocketLaunchState extends State<SocketLaunch> with WindowListener, Widget
 
   @override
   Future<AppExitResponse> didRequestAppExit() async {
-    await appExit();
+    bool isPreventClose = await windowManager.isPreventClose();
+    if (!isPreventClose || Platform.isMacOS) {
+      await appExit();
+    }
     return super.didRequestAppExit();
   }
 

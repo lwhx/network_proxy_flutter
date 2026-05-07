@@ -48,6 +48,7 @@ class DesktopSupport {
         await windowManager.focus();
       });
 
+      windowManager.addListener(WindowChangeListener(appConfiguration));
       registerMethodHandler();
     } catch (e) {
       logger.e("Error during desktop initialization: $e");
