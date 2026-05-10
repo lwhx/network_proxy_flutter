@@ -15,7 +15,6 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../utils/export_request.dart';
 import '../../utils/python.dart';
-import '../component/widgets.dart';
 import '../mobile/menu/bottom_navigation.dart';
 import '../mobile/request/request_editor.dart';
 import '../mobile/setting/request_map.dart';
@@ -162,6 +161,71 @@ class DetailMenuWidget extends StatelessWidget {
                     FlutterToastr.show(localizations.addSuccess, context);
                   }),
               PopupMenuItem(
+                  child: Text(localizations.copy),
+                  onTap: () {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (request == null || !context.mounted) {
+                        return;
+                      }
+
+                      showDialog(
+                          context: context,
+                          builder: (dialogContext) {
+                            return AlertDialog(
+                              title: Text(localizations.copy),
+                              content: SingleChildScrollView(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ListTile(
+                                      visualDensity: const VisualDensity(vertical: -3),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                                      title: Text(localizations.copyRawRequest),
+                                      onTap: () {
+                                        Clipboard.setData(ClipboardData(text: copyRawRequest(request!)));
+                                        Navigator.of(dialogContext).pop();
+                                        FlutterToastr.show(localizations.copied, context);
+                                      },
+                                    ),
+                                    ListTile(
+                                      visualDensity: const VisualDensity(vertical: -3),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                                      title: Text(localizations.copyCurl),
+                                      onTap: () {
+                                        Clipboard.setData(ClipboardData(text: curlRequest(request!)));
+                                        Navigator.of(dialogContext).pop();
+                                        FlutterToastr.show(localizations.copied, context);
+                                      },
+                                    ),
+                                    ListTile(
+                                      visualDensity: const VisualDensity(vertical: -3),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                                      title: Text(localizations.copyAsPythonRequests),
+                                      onTap: () {
+                                        Clipboard.setData(ClipboardData(text: copyAsPythonRequests(request!)));
+                                        Navigator.of(dialogContext).pop();
+                                        FlutterToastr.show(localizations.copied, context);
+                                      },
+                                    ),
+                                    ListTile(
+                                      visualDensity: const VisualDensity(vertical: -3),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                                      title: Text(localizations.copyAsFetch),
+                                      onTap: () {
+                                        Clipboard.setData(ClipboardData(text: copyAsFetch(request!)));
+                                        Navigator.of(dialogContext).pop();
+                                        FlutterToastr.show(localizations.copied, context);
+                                      },
+                                    ),
+
+                                  ],
+                                ),
+                              ),
+                            );
+                          });
+                    });
+                  }),
+              PopupMenuItem(
                   child: Text(localizations.save),
                   onTap: () {
                     if (request == null) return;
@@ -241,26 +305,7 @@ class DetailMenuWidget extends StatelessWidget {
                           context, MobileRequestMapEdit(url: request?.domainPath, title: request?.hostAndPort?.host));
                     });
                   }),
-              CustomPopupMenuItem(
-                  padding: const EdgeInsets.only(left: 10),
-                  child: Text(localizations.copyRawRequest),
-                  onTap: () {
-                    if (request == null) return;
 
-                    var text = copyRawRequest(request!);
-                    Clipboard.setData(ClipboardData(text: text));
-                    FlutterToastr.show(localizations.copied, context);
-                  }),
-              CustomPopupMenuItem(
-                  padding: const EdgeInsets.only(left: 10),
-                  child: Text(localizations.copyAsPythonRequests),
-                  onTap: () {
-                    if (request == null) return;
-
-                    var text = copyAsPythonRequests(request!);
-                    Clipboard.setData(ClipboardData(text: text));
-                    FlutterToastr.show(localizations.copied, context);
-                  })
             ],
         child: const SizedBox(height: 38, width: 38, child: Icon(Icons.more_vert, size: 28)));
   }
