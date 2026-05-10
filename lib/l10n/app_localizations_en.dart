@@ -474,6 +474,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get copyAsPythonRequests => 'Copy as Python Requests';
 
   @override
+  String get copyAsFetch => 'Copy as fetch';
+
+  @override
   String get delete => 'Delete';
 
   @override

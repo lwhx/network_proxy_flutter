@@ -159,6 +159,7 @@
   "copyRequestResponse": "Copy Request and Response",
   "copyCurl": "Copy cURL",
   "copyAsPythonRequests": "Copy as Python Requests",
+  "copyAsFetch": "Copy as fetch",
   "delete": "Delete",
   "rename": "Rename",
   "repeat": "Repeat",

@@ -152,6 +152,7 @@
   "copyRequestResponse": "複製 請求和回應",
   "copyCurl": "複製 cURL",
   "copyAsPythonRequests": "複製 Python Requests",
+  "copyAsFetch": "複製 fetch",
   "delete": "刪除",
   "rename": "重新命名",
   "repeat": "重放",

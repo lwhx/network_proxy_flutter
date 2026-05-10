@@ -45,8 +45,10 @@ class ShareWidget extends StatelessWidget {
                 FlutterToastr.show(localizations.emptyData, context);
                 return;
               }
-              Share.share(request!.requestUrl,
-                  subject: localizations.proxyPinSoftware, sharePositionOrigin: await _sharePositionOrigin(context));
+              SharePlus.instance.share(ShareParams(
+                  text: request!.requestUrl,
+                  subject: localizations.proxyPinSoftware,
+                  sharePositionOrigin: await _sharePositionOrigin(context)));
             },
           ),
           PopupMenuItem(
@@ -60,10 +62,11 @@ class ShareWidget extends StatelessWidget {
                 var file = XFile.fromData(utf8.encode(copyRequest(request!, response)),
                     name: localizations.captureDetail, mimeType: "txt");
 
-                Share.shareXFiles([file],
+                SharePlus.instance.share(ShareParams(
+                    files: [file],
                     fileNameOverrides: ['request.txt'],
                     text: localizations.proxyPinSoftware,
-                    sharePositionOrigin: await _sharePositionOrigin(context));
+                    sharePositionOrigin: await _sharePositionOrigin(context)));
               }),
           PopupMenuItem(
               padding: const EdgeInsets.only(left: 10, right: 2),
@@ -75,10 +78,22 @@ class ShareWidget extends StatelessWidget {
                 var text = curlRequest(request!);
                 var file = XFile.fromData(utf8.encode(text), name: "cURL.txt", mimeType: "txt");
 
-                Share.shareXFiles([file],
+                SharePlus.instance.share(ShareParams(
+                    files: [file],
                     fileNameOverrides: ["cURL.txt"],
                     text: localizations.proxyPinSoftware,
-                    sharePositionOrigin: await _sharePositionOrigin(context));
+                    sharePositionOrigin: await _sharePositionOrigin(context)));
+              }),
+          PopupMenuItem(
+              padding: const EdgeInsets.only(left: 10, right: 2),
+              child: Text("${localizations.share} Fetch API"),
+              onTap: () async {
+                if (request == null) {
+                  return;
+                }
+                var text = copyAsFetch(request!);
+                SharePlus.instance
+                    .share(ShareParams(text: text, sharePositionOrigin: await _sharePositionOrigin(context)));
               }),
           PopupMenuItem(
             enabled: QuickShareService.isRemoteConnected(proxyServer),

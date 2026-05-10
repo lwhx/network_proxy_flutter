@@ -204,6 +204,13 @@ class _RequestWidgetState extends State<RequestWidget> {
                     .then((value) => FlutterToastr.show(localizations.copied, rootNavigator: true, context));
               },
             ),
+            MenuItem(
+              label: localizations.copyAsFetch,
+              onClick: (_) {
+                Clipboard.setData(ClipboardData(text: copyAsFetch(widget.request)))
+                    .then((value) => FlutterToastr.show(localizations.copied, rootNavigator: true, context));
+              },
+            ),
           ])),
       MenuItem.separator(),
       MenuItem(

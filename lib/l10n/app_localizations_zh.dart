@@ -472,6 +472,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get copyAsPythonRequests => '复制 Python Requests';
 
   @override
+  String get copyAsFetch => '复制 fetch';
+
+  @override
   String get delete => '删除';
 
   @override
@@ -1558,6 +1561,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get copyAsPythonRequests => '複製 Python Requests';
+
+  @override
+  String get copyAsFetch => '複製 fetch';
 
   @override
   String get delete => '刪除';

@@ -1014,6 +1014,12 @@ abstract class AppLocalizations {
   /// **'Copy as Python Requests'**
   String get copyAsPythonRequests;
 
+  /// No description provided for @copyAsFetch.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy as fetch'**
+  String get copyAsFetch;
+
   /// No description provided for @delete.
   ///
   /// In en, this message translates to:
