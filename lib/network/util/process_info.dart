@@ -24,6 +24,7 @@ import 'package:proxypin/network/util/socket_address.dart';
 import 'package:win32audio/win32audio.dart';
 
 import 'cache.dart';
+import 'process_info_macos.dart';
 
 void main() async {
   var processInfo = await ProcessInfoUtils.getProcess(512);
@@ -84,21 +85,12 @@ class ProcessInfoUtils {
     }
 
     if (Platform.isMacOS) {
-      var results =
-          await Process.run('bash', ['-c', 'lsof -nP -iTCP:${socketAddress.port} |grep "${socketAddress.port}->"']);
-
-      if (results.exitCode != 0) {
-        return null;
-      }
-
-      var lines = LineSplitter.split(results.stdout);
-
-      for (var line in lines) {
-        var parts = line.trim().split(RegExp(r'\s+'));
-        if (parts.length >= 9) {
-          return int.tryParse(parts[1]);
-        }
-      }
+      // Use libproc syscalls (FFI) instead of spawning `lsof`. Each
+      // Process.run on macOS goes through fork()+execvp(); under load a
+      // multi-threaded Dart VM occasionally deadlocks the forked child
+      // before exec, and the orphaned child keeps the inherited listening
+      // socket fd alive forever. See issue #763.
+      return MacosProcessInfo.findPidByLocalTcpPort(socketAddress.port);
     }
     return null;
   }
@@ -114,19 +106,12 @@ class ProcessInfoUtils {
     }
 
     if (Platform.isMacOS) {
-      var results = await Process.run('bash', ['-c', 'ps -p $pid -o pid= -o comm=']);
-      if (results.exitCode == 0) {
-        var lines = LineSplitter.split(results.stdout);
-        for (var line in lines) {
-          var parts = line.trim().split(RegExp(r'\s+'));
-          if (parts.length >= 2) {
-            parts.removeAt(0).trim();
-            var path = parts.join(" ").split(".app/")[0];
-            String name = path.substring(path.lastIndexOf('/') + 1);
-            return ProcessInfo(name, name, "$path.app", os: Platform.operatingSystem);
-          }
-        }
-      }
+      // Use libproc syscalls (FFI) instead of spawning `ps`. See issue #763.
+      final fullPath = MacosProcessInfo.getProcessPath(pid);
+      if (fullPath == null) return null;
+      final path = fullPath.split('.app/')[0];
+      final name = path.substring(path.lastIndexOf('/') + 1);
+      return ProcessInfo(name, name, "$path.app", os: Platform.operatingSystem);
     }
 
     return null;
