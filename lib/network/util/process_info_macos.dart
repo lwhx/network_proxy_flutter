@@ -62,6 +62,7 @@ const int _kOffProcFdType = 4; // uint32
 
 // socket_fdinfo field offsets
 const int _kOffSoiKind = 256; // int32, value == _kSockInfoTcp means TCP
+const int _kOffInsiFPort = 264; // int32 (htons(uint16) in low 16 bits); 0 for LISTEN sockets
 const int _kOffInsiLPort = 268; // int32 (htons(uint16) in low 16 bits, network byte order)
 
 // FFI signatures
@@ -103,12 +104,6 @@ class MacosProcessInfo {
     final pidBufSize = _procListPids(_kProcAllPids, 0, nullptr, 0);
     if (pidBufSize <= 0) return null;
 
-    final pidBuf = calloc<Uint8>(pidBufSize);
-    final sockBuf = calloc<Uint8>(_kSizeofSocketFdInfo);
-    // Reuse the same ByteData view across all fds; the underlying native
-    // buffer is overwritten in place by each proc_pidfdinfo call.
-    final sockView = ByteData.sublistView(sockBuf.asTypedList(_kSizeofSocketFdInfo));
-
     // If proc_pidfdinfo keeps returning a size smaller than expected, the
     // struct layout has changed (e.g. a future macOS bumped the size) and
     // continuing the scan can't possibly find anything. Bail out early
@@ -116,7 +111,14 @@ class MacosProcessInfo {
     var consecutiveLayoutMismatch = 0;
     const layoutMismatchThreshold = 16;
 
+    Pointer<Uint8>? pidBuf;
+    Pointer<Uint8>? sockBuf;
     try {
+      pidBuf = calloc<Uint8>(pidBufSize);
+      sockBuf = calloc<Uint8>(_kSizeofSocketFdInfo);
+      // Reuse the same ByteData view across all fds; the underlying native
+      // buffer is overwritten in place by each proc_pidfdinfo call.
+      final sockView = ByteData.sublistView(sockBuf.asTypedList(_kSizeofSocketFdInfo));
       final actual = _procListPids(_kProcAllPids, 0, pidBuf.cast(), pidBufSize);
       if (actual <= 0) return null;
 
@@ -154,6 +156,16 @@ class MacosProcessInfo {
             final soiKind = sockView.getInt32(_kOffSoiKind, Endian.host);
             if (soiKind != _kSockInfoTcp) continue;
 
+            // Skip LISTEN sockets. The original implementation filtered
+            // them via `lsof -iTCP:port | grep "${port}->"`, since LISTEN
+            // entries render as `*:port (LISTEN)` (no `->` separator) and
+            // were excluded. Without this skip, a long-running daemon
+            // LISTENing on a port that coincides with a client's ephemeral
+            // source port would be returned instead of the real client.
+            // LISTEN sockets have insi_fport == 0 (no peer endpoint).
+            final fport = sockView.getUint16(_kOffInsiFPort, Endian.big);
+            if (fport == 0) continue;
+
             // insi_lport is stored as `(int)htons(port)` per xnu's
             // fill_socketinfo(): the 16-bit network-byte-order port number
             // sits in the low two bytes of the int32 field with the upper
@@ -171,8 +183,8 @@ class MacosProcessInfo {
       }
       return null;
     } finally {
-      calloc.free(pidBuf);
-      calloc.free(sockBuf);
+      if (pidBuf != null) calloc.free(pidBuf);
+      if (sockBuf != null) calloc.free(sockBuf);
     }
   }
 

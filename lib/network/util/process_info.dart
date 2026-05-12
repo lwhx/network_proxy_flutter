@@ -133,9 +133,23 @@ class ProcessInfoUtils {
       // Use libproc syscalls (FFI) instead of spawning `ps`. See issue #763.
       final fullPath = MacosProcessInfo.getProcessPath(pid);
       if (fullPath == null) return null;
-      final path = fullPath.split('.app/')[0];
-      final name = path.substring(path.lastIndexOf('/') + 1);
-      return ProcessInfo(name, name, "$path.app", os: Platform.operatingSystem);
+      // For .app bundles, surface the bundle directory as the path so the
+      // icon loader can find Contents/Info.plist. For standalone binaries
+      // (e.g. /usr/bin/curl) use the executable path verbatim -- the old
+      // implementation blindly appended ".app", producing non-existent
+      // paths that poisoned the icon cache with empty bytes for 5 minutes.
+      final bundleIdx = fullPath.indexOf('.app/');
+      final String displayPath;
+      final String name;
+      if (bundleIdx >= 0) {
+        final bundleBase = fullPath.substring(0, bundleIdx);
+        displayPath = '$bundleBase.app';
+        name = bundleBase.substring(bundleBase.lastIndexOf('/') + 1);
+      } else {
+        displayPath = fullPath;
+        name = fullPath.substring(fullPath.lastIndexOf('/') + 1);
+      }
+      return ProcessInfo(name, name, displayPath, os: Platform.operatingSystem);
     }
 
     return null;
