@@ -38,6 +38,13 @@ void main() async {
 class ProcessInfoUtils {
   static final processInfoCache = ExpiringCache<String, ProcessInfo>(const Duration(minutes: 5));
 
+  // (host:port) -> pid short cache. Keeps the FFI / Process.run lookup off
+  // the request hot path for the typical HTTP keep-alive case where many
+  // requests share a single client TCP connection (and thus a single
+  // remote socket address). Greatly reduces how often the synchronous
+  // libproc scan runs on the main isolate.
+  static final _pidCache = ExpiringCache<String, int>(const Duration(seconds: 30));
+
   static Future<ProcessInfo?> getProcessByPort(InetSocketAddress socketAddress, String cacheKeyPre) async {
     try {
       if (Platform.isAndroid) {
@@ -51,8 +58,13 @@ class ProcessInfoUtils {
         return null;
       }
 
-      var pid = await _getPid(socketAddress);
-      if (pid == null) return null;
+      var addrKey = "${socketAddress.host}:${socketAddress.port}";
+      var pid = _pidCache.get(addrKey);
+      if (pid == null) {
+        pid = await _getPid(socketAddress);
+        if (pid == null) return null;
+        _pidCache.set(addrKey, pid);
+      }
 
       String cacheKey = "$cacheKeyPre:$pid";
       var processInfo = processInfoCache.get(cacheKey);

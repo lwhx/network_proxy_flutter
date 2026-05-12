@@ -98,6 +98,16 @@ class MacosProcessInfo {
 
     final pidBuf = calloc<Uint8>(pidBufSize);
     final sockBuf = calloc<Uint8>(_kSizeofSocketFdInfo);
+    // Reuse the same ByteData view across all fds; the underlying native
+    // buffer is overwritten in place by each proc_pidfdinfo call.
+    final sockView = ByteData.sublistView(sockBuf.asTypedList(_kSizeofSocketFdInfo));
+
+    // If proc_pidfdinfo keeps returning a size smaller than expected, the
+    // struct layout has changed (e.g. a future macOS bumped the size) and
+    // continuing the scan can't possibly find anything. Bail out early
+    // after enough consecutive mismatches to avoid wasting syscalls.
+    var consecutiveLayoutMismatch = 0;
+    const layoutMismatchThreshold = 16;
 
     try {
       final actual = _procListPids(_kProcAllPids, 0, pidBuf.cast(), pidBufSize);
@@ -107,6 +117,7 @@ class MacosProcessInfo {
 
       for (final pid in pidView) {
         if (pid <= 0) continue;
+        if (consecutiveLayoutMismatch >= layoutMismatchThreshold) break;
 
         final fdSize = _procPidInfo(pid, _kProcPidListFds, 0, nullptr, 0);
         if (fdSize <= 0) continue;
@@ -127,9 +138,12 @@ class MacosProcessInfo {
             final fd = fdView.getInt32(entryOff + _kOffProcFd, Endian.host);
 
             final n = _procPidFdInfo(pid, fd, _kProcPidFdSocketInfo, sockBuf.cast(), _kSizeofSocketFdInfo);
-            if (n < _kSizeofSocketFdInfo) continue;
+            if (n < _kSizeofSocketFdInfo) {
+              consecutiveLayoutMismatch++;
+              continue;
+            }
+            consecutiveLayoutMismatch = 0;
 
-            final sockView = ByteData.sublistView(sockBuf.asTypedList(_kSizeofSocketFdInfo));
             final soiKind = sockView.getInt32(_kOffSoiKind, Endian.host);
             if (soiKind != _kSockInfoTcp) continue;
 
