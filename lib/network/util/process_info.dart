@@ -45,6 +45,12 @@ class ProcessInfoUtils {
   // libproc scan runs on the main isolate.
   static final _pidCache = ExpiringCache<String, int>(const Duration(seconds: 30));
 
+  // Negative cache for ports whose owner can't be resolved (e.g. the client
+  // process has already exited by the time we scan). Without this, every
+  // short-lived connection forces a full PID-list rescan on every request.
+  // Short TTL so a real owner that appears soon after is not masked.
+  static final _pidNotFoundCache = ExpiringCache<String, bool>(const Duration(seconds: 5));
+
   static Future<ProcessInfo?> getProcessByPort(InetSocketAddress socketAddress, String cacheKeyPre) async {
     try {
       if (Platform.isAndroid) {
@@ -59,10 +65,14 @@ class ProcessInfoUtils {
       }
 
       var addrKey = "${socketAddress.host}:${socketAddress.port}";
+      if (_pidNotFoundCache.get(addrKey) == true) return null;
       var pid = _pidCache.get(addrKey);
       if (pid == null) {
         pid = await _getPid(socketAddress);
-        if (pid == null) return null;
+        if (pid == null) {
+          _pidNotFoundCache.set(addrKey, true);
+          return null;
+        }
         _pidCache.set(addrKey, pid);
       }
 
@@ -71,7 +81,9 @@ class ProcessInfoUtils {
       if (processInfo != null) return processInfo;
 
       processInfo = await getProcess(pid);
-      processInfoCache.set(cacheKey, processInfo!);
+      if (processInfo != null) {
+        processInfoCache.set(cacheKey, processInfo);
+      }
       return processInfo;
     } catch (e) {
       logger.e("getProcessByPort error: $e");

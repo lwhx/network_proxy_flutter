@@ -93,6 +93,13 @@ class MacosProcessInfo {
   /// are spawned. Typical cost on a desktop with ~500 processes and ~10k
   /// total fds is a few milliseconds.
   static int? findPidByLocalTcpPort(int localPort) {
+    // The insi_lport read below assumes a little-endian host: `(int)htons(port)`
+    // stores the network-byte-order 16-bit port in the low two bytes of the
+    // int32 field. All shipping macOS hardware (x86_64 / arm64) is
+    // little-endian; this assert exists to fail loudly rather than return
+    // wrong port values if that ever changes. Stripped in release builds.
+    assert(Endian.host == Endian.little, 'libproc parsing requires little-endian host');
+
     final pidBufSize = _procListPids(_kProcAllPids, 0, nullptr, 0);
     if (pidBufSize <= 0) return null;
 
