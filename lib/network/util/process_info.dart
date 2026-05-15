@@ -43,7 +43,7 @@ class ProcessInfoUtils {
   // requests share a single client TCP connection (and thus a single
   // remote socket address). Greatly reduces how often the synchronous
   // libproc scan runs on the main isolate.
-  static final _pidCache = ExpiringCache<String, int>(const Duration(seconds: 30));
+  static final _pidCache = ExpiringCache<String, int>(const Duration(seconds: 15));
 
   // Negative cache for ports whose owner can't be resolved (e.g. the client
   // process has already exited by the time we scan). Without this, every

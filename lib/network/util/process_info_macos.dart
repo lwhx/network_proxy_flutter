@@ -44,27 +44,6 @@ import 'package:ffi/ffi.dart';
 /// size before reading offsets so a hypothetical layout change in a future
 /// macOS release surfaces as a null return instead of memory corruption.
 
-// libproc constants (from <libproc.h> / <sys/proc_info.h>)
-const int _kProcAllPids = 1;
-const int _kProcPidListFds = 1;
-const int _kProcPidFdSocketInfo = 3;
-const int _kProxFdTypeSocket = 2;
-const int _kSockInfoTcp = 2;
-const int _kProcPidPathInfoMaxSize = 4096;
-
-// Struct sizes (verified via sizeof() probe)
-const int _kSizeofProcFdInfo = 8;
-const int _kSizeofSocketFdInfo = 792;
-
-// proc_fdinfo field offsets
-const int _kOffProcFd = 0; // int32
-const int _kOffProcFdType = 4; // uint32
-
-// socket_fdinfo field offsets
-const int _kOffSoiKind = 256; // int32, value == _kSockInfoTcp means TCP
-const int _kOffInsiFPort = 264; // int32 (htons(uint16) in low 16 bits); 0 for LISTEN sockets
-const int _kOffInsiLPort = 268; // int32 (htons(uint16) in low 16 bits, network byte order)
-
 // FFI signatures
 typedef _ProcListPidsC = Int32 Function(Uint32, Uint32, Pointer<Void>, Int32);
 typedef _ProcListPidsDart = int Function(int, int, Pointer<Void>, int);
@@ -78,15 +57,36 @@ typedef _ProcPidFdInfoDart = int Function(int, int, int, Pointer<Void>, int);
 typedef _ProcPidPathC = Int32 Function(Int32, Pointer<Void>, Uint32);
 typedef _ProcPidPathDart = int Function(int, Pointer<Void>, int);
 
-// libproc symbols live in libSystem which is already linked into every
-// macOS process, so DynamicLibrary.process() finds them.
-final DynamicLibrary _libproc = DynamicLibrary.process();
-final _procListPids = _libproc.lookupFunction<_ProcListPidsC, _ProcListPidsDart>('proc_listpids');
-final _procPidInfo = _libproc.lookupFunction<_ProcPidInfoC, _ProcPidInfoDart>('proc_pidinfo');
-final _procPidFdInfo = _libproc.lookupFunction<_ProcPidFdInfoC, _ProcPidFdInfoDart>('proc_pidfdinfo');
-final _procPidPath = _libproc.lookupFunction<_ProcPidPathC, _ProcPidPathDart>('proc_pidpath');
-
 class MacosProcessInfo {
+  // libproc constants (from <libproc.h> / <sys/proc_info.h>)
+  static const int _kProcAllPids = 1;
+  static const int _kProcPidListFds = 1;
+  static const int _kProcPidFdSocketInfo = 3;
+  static const int _kProxFdTypeSocket = 2;
+  static const int _kSockInfoTcp = 2;
+  static const int _kProcPidPathInfoMaxSize = 4096;
+
+  // Struct sizes (verified via sizeof() probe)
+  static const int _kSizeofProcFdInfo = 8;
+  static const int _kSizeofSocketFdInfo = 792;
+
+  // proc_fdinfo field offsets
+  static const int _kOffProcFd = 0; // int32
+  static const int _kOffProcFdType = 4; // uint32
+
+  // socket_fdinfo field offsets
+  static const int _kOffSoiKind = 256; // int32, value == _kSockInfoTcp means TCP
+  static const int _kOffInsiFPort = 264; // int32 (htons(uint16) in low 16 bits); 0 for LISTEN sockets
+  static const int _kOffInsiLPort = 268; // int32 (htons(uint16) in low 16 bits, network byte order)
+
+  // libproc symbols live in libSystem which is already linked into every
+  // macOS process, so DynamicLibrary.process() finds them.
+  static final DynamicLibrary _libproc = DynamicLibrary.process();
+  static late final _procListPids = _libproc.lookupFunction<_ProcListPidsC, _ProcListPidsDart>('proc_listpids');
+  static late final _procPidInfo = _libproc.lookupFunction<_ProcPidInfoC, _ProcPidInfoDart>('proc_pidinfo');
+  static late final _procPidFdInfo = _libproc.lookupFunction<_ProcPidFdInfoC, _ProcPidFdInfoDart>('proc_pidfdinfo');
+  static late final _procPidPath = _libproc.lookupFunction<_ProcPidPathC, _ProcPidPathDart>('proc_pidpath');
+
   /// Returns the PID that owns a TCP socket whose local port equals
   /// [localPort], or null if no such socket is found or the lookup fails.
   ///
