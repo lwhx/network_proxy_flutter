@@ -129,6 +129,9 @@ class ChannelDispatcher extends ChannelHandler<Uint8List> {
 
         if (remoteChannel != null) {
           await remoteChannel.writeBytes(decodeResult.forward!);
+        } else if (channelContext.isHttp2PriorKnowledge && identical(channel, channelContext.clientChannel)) {
+          channelContext.bufferHttp2Frames(decodeResult.forward!);
+          await channelContext.sendInitialHttp2Settings();
         } else {
           logger.w("[$channel] forward remoteChannel is null");
         }
@@ -196,6 +199,9 @@ class ChannelDispatcher extends ChannelHandler<Uint8List> {
         } else {
           await channelRead(channelContext, channel, Uint8List(0));
         }
+      } else if (data is HttpMessage && data.protocolVersion == 'HTTP/2' && buffer.isReadable()) {
+        // 一个TCP读事件可能包含多个完整流；不能依赖下一次socket事件继续解码。
+        await channelRead(channelContext, channel, Uint8List(0));
       }
     } catch (error, trace) {
       onError(channelContext, channel, error, trace: trace);
@@ -217,6 +223,7 @@ class ChannelDispatcher extends ChannelHandler<Uint8List> {
   Future<void> _fixAndroidVpnPort(ChannelContext channelContext, Channel channel, HttpRequest data) async {
     if (!Platform.isAndroid ||
         channel.isSsl ||
+        data.protocolVersion == 'HTTP/2' ||
         !data.uri.startsWith("/") ||
         data.headers.host?.contains(":") == true ||
         data.hostAndPort == null) {

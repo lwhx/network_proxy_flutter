@@ -95,7 +95,17 @@ abstract class HttpCodec<T extends HttpMessage> implements Codec<T, T> {
   DecoderResult<T> decode(ChannelContext channelContext, ByteBuf data) {
     var protocol = channelContext.clientChannel?.selectedProtocol;
 
-    if (protocol == HttpConstants.h2 || protocol == HttpConstants.h2_14) {
+    if (this is HttpRequestCodec &&
+        _state == State.readInitial &&
+        channelContext.clientChannel?.isSsl != true &&
+        Http2Codec.hasConnectionPrefacePrefix(data)) {
+      if (data.readableBytes() < Http2Codec.connectionPrefacePRI.length) {
+        return DecoderResult<T>(isDone: false);
+      }
+      channelContext.isHttp2PriorKnowledge = true;
+    }
+
+    if (channelContext.isHttp2PriorKnowledge || protocol == HttpConstants.h2 || protocol == HttpConstants.h2_14) {
       return getH2Codec().decode(channelContext, data);
     }
 

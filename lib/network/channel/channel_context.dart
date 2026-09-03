@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:proxypin/network/channel/channel.dart';
 import 'package:proxypin/network/channel/host_port.dart';
 import 'package:proxypin/network/http/codec.dart';
@@ -21,6 +23,35 @@ class ChannelContext {
   //和远程服务端的连接
   Channel? serverChannel;
 
+  // 明文连接没有ALPN，识别完整前置帧后由两端编解码器共用此状态。
+  bool isHttp2PriorKnowledge = false;
+  final BytesBuilder _pendingHttp2Frames = BytesBuilder();
+  Future<Channel>? _connectingServerChannel;
+  bool _http2SettingsSent = false;
+  bool _http2SettingsAckPending = false;
+
+  Future<Channel?> get readyServerChannel async {
+    final connecting = _connectingServerChannel;
+    if (connecting != null) return await connecting;
+    return serverChannel;
+  }
+
+  void bufferHttp2Frames(List<int> bytes) => _pendingHttp2Frames.add(bytes);
+
+  Future<void> sendInitialHttp2Settings() async {
+    if (_http2SettingsSent) return;
+    _http2SettingsSent = true;
+    _http2SettingsAckPending = true;
+    // 客户端可以等服务端前置帧后才发送:authority，不能双方一直等待。
+    await clientChannel!.writeBytes(FrameHeader(0, FrameType.settings, 0, 0).encode());
+  }
+
+  bool consumeInitialHttp2SettingsAck() {
+    if (!_http2SettingsAckPending) return false;
+    _http2SettingsAckPending = false;
+    return true;
+  }
+
   EventListener? listener;
 
   //http2 stream
@@ -30,11 +61,23 @@ class ChannelContext {
   ChannelContext();
 
   //创建服务端连接
-  Future<Channel> connectServerChannel(HostAndPort hostAndPort, ChannelHandler channelHandler) async {
-    serverChannel = await startConnect(hostAndPort, channelHandler, this);
-    putAttribute(clientChannel!.id, serverChannel);
-    putAttribute(serverChannel!.id, clientChannel);
-    return serverChannel!;
+  Future<Channel> connectServerChannel(HostAndPort hostAndPort, ChannelHandler channelHandler) {
+    return _connectingServerChannel ??= _connectServerChannel(hostAndPort, channelHandler);
+  }
+
+  Future<Channel> _connectServerChannel(HostAndPort hostAndPort, ChannelHandler channelHandler) async {
+    try {
+      serverChannel = await startConnect(hostAndPort, channelHandler, this);
+      putAttribute(clientChannel!.id, serverChannel);
+      putAttribute(serverChannel!.id, clientChannel);
+      // :authority到达前还不知道目标，前置帧和SETTINGS不能在此之前丢弃。
+      if (_pendingHttp2Frames.isNotEmpty) {
+        await serverChannel!.writeBytes(_pendingHttp2Frames.takeBytes());
+      }
+      return serverChannel!;
+    } finally {
+      _connectingServerChannel = null;
+    }
   }
 
   /// 建立连接

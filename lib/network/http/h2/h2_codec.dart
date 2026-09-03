@@ -63,14 +63,15 @@ abstract class Http2Codec<T extends HttpMessage> implements Codec<T, T> {
     DecoderResult<T> result = DecoderResult<T>();
 
     //Connection Preface PRI * HTTP/2.0
-    if (byteBuf.get(byteBuf.readerIndex) == 0x50 &&
-        byteBuf.get(byteBuf.readerIndex + 1) == 0x52 &&
-        byteBuf.get(byteBuf.readerIndex + 2) == 0x49 &&
-        isConnectionPrefacePRI(byteBuf)) {
+    if (this is Http2RequestDecoder && hasConnectionPrefacePrefix(byteBuf)) {
+      if (byteBuf.readableBytes() < connectionPrefacePRI.length) {
+        return DecoderResult<T>(isDone: false);
+      }
       result.forward = byteBuf.readBytes(connectionPrefacePRI.length);
       // logger.d(
       //     "Connection Preface ${connectionPrefacePRI.length} ${String.fromCharCodes(result.forward!)} ${byteBuf.readableBytes()}");
       if (byteBuf.readableBytes() <= 0) {
+        result.isDone = false;
         return result;
       }
     }
@@ -216,6 +217,14 @@ abstract class Http2Codec<T extends HttpMessage> implements Codec<T, T> {
         }
         break;
       case FrameType.settings:
+        if (this is Http2RequestDecoder &&
+            frameHeader.hasAckFlag &&
+            frameHeader.streamIdentifier == 0 &&
+            frameHeader.length == 0 &&
+            channelContext.consumeInitialHttp2SettingsAck()) {
+          // 仅消费代理自己发出的初始SETTINGS的确认，不转交给尚未发送该帧的上游。
+          return result;
+        }
         SettingHandler.handleSettingsFrame(channelContext, frameHeader, ByteBuf(framePayload));
         result.forward = List.from(frameHeader.encode())..addAll(framePayload);
         return result;
@@ -394,11 +403,11 @@ abstract class Http2Codec<T extends HttpMessage> implements Codec<T, T> {
     bytesBuilder.add(payload);
   }
 
-  bool isConnectionPrefacePRI(ByteBuf data) {
-    if (data.readableBytes() < 9) {
+  static bool hasConnectionPrefacePrefix(ByteBuf data) {
+    if (!data.isReadable()) {
       return false;
     }
-    for (int i = 0; i < connectionPrefacePRI.length; i++) {
+    for (int i = 0; i < min(data.readableBytes(), connectionPrefacePRI.length); i++) {
       if (data.get(data.readerIndex + i) != connectionPrefacePRI[i]) {
         return false;
       }
@@ -585,7 +594,7 @@ class Http2RequestDecoder extends Http2Codec<HttpRequest> {
     var uri = message.requestUri!;
     headers.add(Header.ascii(":method", message.method.name));
     headers.add(Header.ascii(":scheme", uri.scheme));
-    headers.add(Header.ascii(":authority", uri.host));
+    headers.add(Header.ascii(":authority", uri.authority));
     headers.add(Header.ascii(":path", message.uri));
 
     // h2 禁止的 hop-by-hop headers (RFC 7540 §8.1.2.2)：

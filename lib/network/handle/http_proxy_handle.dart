@@ -202,7 +202,7 @@ class HttpProxyChannelHandler extends ChannelHandler<HttpRequest> {
   Future<Channel> _getRemoteChannel(
       ChannelContext channelContext, Channel clientChannel, HttpRequest httpRequest) async {
     //客户端连接 作为缓存
-    Channel? remoteChannel = channelContext.serverChannel;
+    Channel? remoteChannel = await channelContext.readyServerChannel;
     if (remoteChannel != null) {
       return remoteChannel;
     }
