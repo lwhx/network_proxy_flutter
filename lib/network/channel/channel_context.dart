@@ -5,6 +5,7 @@ import 'package:proxypin/network/channel/host_port.dart';
 import 'package:proxypin/network/http/codec.dart';
 import 'package:proxypin/network/http/h2/frame.dart';
 import 'package:proxypin/network/http/h2/setting.dart';
+import 'package:proxypin/network/http/h2/request_queue.dart';
 import 'package:proxypin/network/http/http.dart';
 import 'package:proxypin/network/util/attribute_keys.dart';
 import 'package:proxypin/network/util/process_info.dart';
@@ -29,6 +30,9 @@ class ChannelContext {
   Future<Channel>? _connectingServerChannel;
   bool _http2SettingsSent = false;
   bool _http2SettingsAckPending = false;
+  final http2Requests = Http2RequestQueue();
+  final _forwardedHttp2Streams = <int>{};
+  final _pendingHttp2StreamFrames = <int, BytesBuilder>{};
 
   Future<Channel?> get readyServerChannel async {
     final connecting = _connectingServerChannel;
@@ -62,6 +66,11 @@ class ChannelContext {
 
   //创建服务端连接
   Future<Channel> connectServerChannel(HostAndPort hostAndPort, ChannelHandler channelHandler) {
+    // 调用方经过异步处理后可能仍持有旧的 null；这里同时复核在建和已建连接。
+    final connecting = _connectingServerChannel;
+    if (connecting != null) return connecting;
+    final connected = serverChannel;
+    if (connected != null) return Future.value(connected);
     return _connectingServerChannel ??= _connectServerChannel(hostAndPort, channelHandler);
   }
 
@@ -71,7 +80,7 @@ class ChannelContext {
       putAttribute(clientChannel!.id, serverChannel);
       putAttribute(serverChannel!.id, clientChannel);
       // :authority到达前还不知道目标，前置帧和SETTINGS不能在此之前丢弃。
-      if (_pendingHttp2Frames.isNotEmpty) {
+      while (_pendingHttp2Frames.isNotEmpty) {
         await serverChannel!.writeBytes(_pendingHttp2Frames.takeBytes());
       }
       return serverChannel!;
@@ -119,8 +128,41 @@ class ChannelContext {
 
   HttpRequest? putStreamRequest(int streamId, HttpRequest request) {
     var old = _streams[streamId]?.key;
+    http2Requests.register(streamId);
     _streams[streamId] = Pair(request, null);
     return old;
+  }
+
+  /// 大正文流的 DATA 不能抢在它尚未转发的 HEADERS 之前到达上游。
+  bool bufferPendingHttp2StreamFrame(int streamId, List<int> bytes) {
+    if (_forwardedHttp2Streams.contains(streamId)) return false;
+    if (http2Requests.canForward(streamId)) {
+      _pendingHttp2StreamFrames.putIfAbsent(streamId, BytesBuilder.new).add(bytes);
+    }
+    return true;
+  }
+
+  Future<void> writeForwardedRequest(Channel remote, HttpRequest request) async {
+    if (request.protocolVersion != 'HTTP/2') {
+      await remote.write(this, request);
+      return;
+    }
+    final streamId = request.streamId!;
+    if (!http2Requests.canForward(streamId)) return;
+    // encode/add 在首次 await 前完成，先写 HEADERS，再写之前缓存的 DATA。
+    final writes = <Future<void>>[remote.write(this, request)];
+    final buffered = _pendingHttp2StreamFrames.remove(streamId);
+    if (buffered != null) writes.add(remote.writeBytes(buffered.takeBytes()));
+    _forwardedHttp2Streams.add(streamId);
+    await Future.wait(writes);
+  }
+
+  /// 上游尚未打开的流不能收到 RST_STREAM，否则会牵连其它复用请求。
+  bool cancelHttp2Request(int streamId) {
+    final forwarded = _forwardedHttp2Streams.contains(streamId);
+    http2Requests.cancel(streamId);
+    removeStream(streamId);
+    return forwarded;
   }
 
   void putStreamResponse(int streamId, HttpResponse response) {
@@ -145,6 +187,9 @@ class ChannelContext {
 
   void removeStream(int streamId) {
     _streams.remove(streamId);
+    _streamDependency.remove(streamId);
+    _forwardedHttp2Streams.remove(streamId);
+    _pendingHttp2StreamFrames.remove(streamId);
   }
 
   void put(int streamId, HeadersFrame frame) {

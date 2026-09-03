@@ -192,7 +192,9 @@ abstract class Http2Codec<T extends HttpMessage> implements Codec<T, T> {
         break;
       case FrameType.data:
         //处理DATA帧
-        var message = getMessage(channelContext, frameHeader)!;
+        var message = getMessage(channelContext, frameHeader);
+        // 已取消流的迟到 DATA 不能使整个复用连接崩溃。
+        if (message == null) return result;
         bool isSseResponse =
             message is HttpResponse && message.headers.contentType.toLowerCase().startsWith('text/event-stream');
         if (isSseResponse) {
@@ -203,7 +205,10 @@ abstract class Http2Codec<T extends HttpMessage> implements Codec<T, T> {
 
         // 大 body stream 直接转发 DATA 帧，不累积 body
         if (_largeBodyStreamIds.contains(frameHeader.streamIdentifier)) {
-          result.forward = List.from(frameHeader.encode())..addAll(framePayload);
+          final bytes = List<int>.from(frameHeader.encode())..addAll(framePayload);
+          if (!channelContext.bufferPendingHttp2StreamFrame(frameHeader.streamIdentifier, bytes)) {
+            result.forward = bytes;
+          }
           if (frameHeader.hasEndStreamFlag) {
             _largeBodyStreamIds.remove(frameHeader.streamIdentifier);
           }
@@ -232,8 +237,10 @@ abstract class Http2Codec<T extends HttpMessage> implements Codec<T, T> {
         // stream 中断：清理 streaming upload 标记，避免泄漏
         _headerEndStreamPending.remove(frameHeader.streamIdentifier);
         if (_largeBodyStreamIds.remove(frameHeader.streamIdentifier)) {
-          logger.w(
-              "[${channelContext.clientChannel?.id}] h2 streaming stream:${frameHeader.streamIdentifier} reset");
+          logger.w("[${channelContext.clientChannel?.id}] h2 streaming stream:${frameHeader.streamIdentifier} reset");
+        }
+        if (this is Http2RequestDecoder && !channelContext.cancelHttp2Request(frameHeader.streamIdentifier)) {
+          return result;
         }
         result.forward = List.from(frameHeader.encode())..addAll(framePayload);
         return result;

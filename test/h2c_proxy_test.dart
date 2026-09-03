@@ -13,6 +13,7 @@ import 'package:proxypin/network/handle/http_proxy_handle.dart';
 import 'package:proxypin/network/http/codec.dart';
 import 'package:proxypin/network/http/h2/hpack/hpack.dart';
 import 'package:proxypin/network/http/http.dart';
+import 'package:proxypin/network/http/http_headers.dart';
 import 'package:proxypin/network/util/file_read.dart';
 import 'package:proxypin/utils/har.dart';
 
@@ -171,6 +172,7 @@ void main() {
       final decoder = HPackDecoder();
       final encoder = HPackEncoder();
       final requestBodies = <int, List<int>>{};
+      var highestStream = 0;
       socket.listen((incoming) {
         try {
           List<int> bytes = incoming;
@@ -187,8 +189,11 @@ void main() {
             if (type == 4 && flags == 1) originSettingsAcks++;
             if (type == 6 && flags == 0) socket.add(_frame(6, 1, 0, payload));
             if (type == 1) {
+              expect(stream, greaterThan(highestStream), reason: '新流必须按递增流号打开');
+              highestStream = stream;
               received[stream] = {for (final header in decoder.decode(payload)) header.nameString: header.valueString};
             }
+            if (type == 3) expect(received.containsKey(stream), isTrue, reason: '不能重置上游尚未打开的流');
             if (type == 0) requestBodies.putIfAbsent(stream, () => []).addAll(payload);
             if ((type == 0 || type == 1) && (flags & 1) != 0) {
               final request = received[stream]!;
@@ -265,7 +270,30 @@ void main() {
     expect(exported['request']['httpVersion'], 'HTTP/2');
     expect(exported['response']['httpVersion'], 'HTTP/2');
     expect(exported['response']['status'], 200);
+    expect(exported['response']['_responseAvailable'], isTrue);
+    expect(exported['response']['_originalContentEncoding'], 'gzip');
     expect(exported['response']['content']['text'], '/first?q=1|');
+  });
+
+  test('HAR missing responses do not invent HTTP/1.1 or an observed response', () {
+    final request = HttpRequest(HttpMethod.get, 'http://example.test/pending', protocolVersion: 'HTTP/2');
+    for (final exported in [Har.toHar(request), Har.toHarResponse(request)]) {
+      expect(exported['response']['status'], 0);
+      expect(exported['response']['httpVersion'], isEmpty);
+      expect(exported['response']['_responseAvailable'], isFalse);
+      expect(exported['response']['_originalContentEncoding'], isNull);
+    }
+    expect(Har.toHar(request)['request']['httpVersion'], 'HTTP/2');
+  });
+
+  test('HAR retains original Brotli evidence without changing decoded export headers', () {
+    final request = HttpRequest(HttpMethod.get, 'http://example.test/compressed', protocolVersion: 'HTTP/2');
+    request.response = HttpResponse(HttpStatus.ok, protocolVersion: 'HTTP/2')
+      ..headers.set(HttpHeaders.CONTENT_ENCODING, 'br');
+    final exported = Har.toHar(request);
+    expect(exported['response']['_originalContentEncoding'], 'br');
+    expect(exported['response']['_responseAvailable'], isTrue);
+    expect(request.response!.headers.get(HttpHeaders.CONTENT_ENCODING), 'br');
   });
 
   test('completes the server preface before headers without leaking the bootstrap SETTINGS ack', () async {
@@ -325,6 +353,75 @@ void main() {
     peer.socket.add(request.sublist(request.length - 3));
     expect(await peer.response(1), '/binary|$body');
     expect(capture.requests.single.body, [5, 1, 0]);
+  });
+
+  test('mixed POST bodies finishing out of order still open streams in order', () async {
+    final peer = await client();
+    peer.socket.add([...ascii.encode(_preface), ..._frame(4, 0, 0, [])]);
+    await peer.settings.future.timeout(const Duration(seconds: 2));
+    final first = peer.request(1, origin.port, '/slow-body', body: '{}');
+    final third = peer.request(5, origin.port, '/later-body', body: '[]');
+    peer.socket.add([
+      ...first.sublist(0, first.length - 11),
+      ...peer.request(3, origin.port, '/get-a'),
+      ...third.sublist(0, third.length - 11),
+      ...peer.request(7, origin.port, '/get-b'),
+      ...third.sublist(third.length - 11),
+    ]);
+    await peer.socket.flush();
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    peer.socket.add(first.sublist(first.length - 11));
+    expect(await Future.wait([peer.response(1), peer.response(3), peer.response(5), peer.response(7)]),
+        ['/slow-body|{}', '/get-a|', '/later-body|[]', '/get-b|']);
+    expect(received.keys.toList(), [1, 3, 5, 7]);
+    expect(originConnections, 1);
+  });
+
+  test('body frames coalesced after later GET headers cannot deadlock the drain', () async {
+    final peer = await client();
+    final first = peer.request(1, origin.port, '/body', body: '{}');
+    peer.socket.add([
+      ...ascii.encode(_preface),
+      ..._frame(4, 0, 0, []),
+      ...first.sublist(0, first.length - 11),
+      ...peer.request(3, origin.port, '/get'),
+      ...first.sublist(first.length - 11),
+    ]);
+    expect(await Future.wait([peer.response(1), peer.response(3)]), ['/body|{}', '/get|']);
+    expect(originConnections, 1);
+  });
+
+  test('cancelling an incomplete earlier stream releases later requests without idle RST', () async {
+    final peer = await client();
+    final first = peer.request(1, origin.port, '/cancelled-body', body: '{}');
+    peer.socket.add([
+      ...ascii.encode(_preface),
+      ..._frame(4, 0, 0, []),
+      ...first.sublist(0, first.length - 11),
+      ...peer.request(3, origin.port, '/survives'),
+      ..._frame(3, 0, 1, [0, 0, 0, 8]),
+      ...first.sublist(first.length - 11),
+    ]);
+    expect(await peer.response(3), '/survives|');
+    expect(received.keys.toList(), [3]);
+    expect(capture.requests.single.uri, '/survives');
+  });
+
+  test('a completed upstream connection cannot be replaced by a late cache miss', () async {
+    final peer = await client();
+    peer.socket.add([...ascii.encode(_preface), ..._frame(4, 0, 0, []), ...peer.request(1, origin.port, '/first')]);
+    expect(await peer.response(1), '/first|');
+    // 两批 TCP 事件在异步平台查询结束后仍应复用已经建立的同一上游连接。
+    for (var stream = 3; stream < 13; stream += 2) {
+      peer.socket.add(peer.request(stream, origin.port, '/next-$stream'));
+      await peer.socket.flush();
+    }
+    expect(await Future.wait([for (var stream = 3; stream < 13; stream += 2) peer.response(stream)]),
+        [for (var stream = 3; stream < 13; stream += 2) '/next-$stream|']);
+    expect(originConnections, 1);
+    for (final response in capture.responses) {
+      expect(response.requestId, response.request!.requestId);
+    }
   });
 
   test('filtered h2c connections keep protocol framing without recording traffic', () async {
