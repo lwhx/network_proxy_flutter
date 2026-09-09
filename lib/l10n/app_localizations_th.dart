@@ -307,6 +307,12 @@ class AppLocalizationsTh extends AppLocalizations {
   String get edit => 'แก้ไข';
 
   @override
+  String get moveUp => 'เลื่อนขึ้น';
+
+  @override
+  String get moveDown => 'เลื่อนลง';
+
+  @override
   String get disabled => 'ปิดใช้งาน';
 
   @override

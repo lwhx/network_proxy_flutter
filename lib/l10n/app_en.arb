@@ -98,6 +98,8 @@
   "action": "Action",
   "multiple": "Multiple",
   "edit": "Edit",
+  "moveUp": "Move Up",
+  "moveDown": "Move Down",
   "disabled": "Disabled",
   "requestRewriteDeleteConfirm": "Delete {size} rule(s)?",
   "useGuide": "Use Guide",

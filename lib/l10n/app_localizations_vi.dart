@@ -307,6 +307,12 @@ class AppLocalizationsVi extends AppLocalizations {
   String get edit => 'Sửa';
 
   @override
+  String get moveUp => 'Di chuyển lên';
+
+  @override
+  String get moveDown => 'Di chuyển xuống';
+
+  @override
   String get disabled => 'Đã tắt';
 
   @override

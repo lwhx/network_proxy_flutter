@@ -306,6 +306,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get edit => '编辑';
 
   @override
+  String get moveUp => '上移';
+
+  @override
+  String get moveDown => '下移';
+
+  @override
   String get disabled => '禁用';
 
   @override
@@ -1511,6 +1517,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get edit => '編輯';
+
+  @override
+  String get moveUp => '上移';
+
+  @override
+  String get moveDown => '下移';
 
   @override
   String get disabled => '停用';

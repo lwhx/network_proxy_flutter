@@ -53,6 +53,8 @@
   "done": "เสร็จสิ้น",
   "download": "ดาวน์โหลด",
   "edit": "แก้ไข",
+  "moveUp": "เลื่อนขึ้น",
+  "moveDown": "เลื่อนลง",
   "editReportServer": "แก้ไขเซิร์ฟเวอร์รายงาน",
   "editRequest": "แก้ไขและส่ง",
   "emptyData": "ไม่มีข้อมูล",

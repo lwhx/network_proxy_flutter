@@ -307,6 +307,12 @@ class AppLocalizationsId extends AppLocalizations {
   String get edit => 'Edit';
 
   @override
+  String get moveUp => 'Naikkan';
+
+  @override
+  String get moveDown => 'Turunkan';
+
+  @override
   String get disabled => 'Dinonaktifkan';
 
   @override

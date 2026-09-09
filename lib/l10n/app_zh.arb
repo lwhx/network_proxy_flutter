@@ -98,6 +98,8 @@
   "action": "行为",
   "multiple": "多选",
   "edit": "编辑",
+  "moveUp": "上移",
+  "moveDown": "下移",
   "disabled": "禁用",
   "requestRewriteDeleteConfirm": "是否删除{size}条规则?",
   "useGuide": "使用文档",

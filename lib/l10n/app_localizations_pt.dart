@@ -307,6 +307,12 @@ class AppLocalizationsPt extends AppLocalizations {
   String get edit => 'Edit';
 
   @override
+  String get moveUp => 'Move Up';
+
+  @override
+  String get moveDown => 'Move Down';
+
+  @override
   String get disabled => 'Disabled';
 
   @override
@@ -1473,6 +1479,12 @@ class AppLocalizationsPtBr extends AppLocalizationsPt {
 
   @override
   String get edit => 'Editar';
+
+  @override
+  String get moveUp => 'Mover para cima';
+
+  @override
+  String get moveDown => 'Mover para baixo';
 
   @override
   String get disabled => 'Desativado';

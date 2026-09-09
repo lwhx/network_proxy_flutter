@@ -53,6 +53,8 @@
   "done": "Selesai",
   "download": "Unduh",
   "edit": "Edit",
+  "moveUp": "Naikkan",
+  "moveDown": "Turunkan",
   "editReportServer": "Edit server laporan",
   "editRequest": "Edit dan kirim",
   "emptyData": "Tidak ada data",

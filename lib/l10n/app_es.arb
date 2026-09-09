@@ -53,6 +53,8 @@
   "done": "Listo",
   "download": "Descargar",
   "edit": "Editar",
+  "moveUp": "Subir",
+  "moveDown": "Bajar",
   "editReportServer": "Editar servidor de informes",
   "editRequest": "Editar y enviar",
   "emptyData": "Sin datos",

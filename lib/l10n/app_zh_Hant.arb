@@ -96,6 +96,8 @@
   "action": "行為",
   "multiple": "多選",
   "edit": "編輯",
+  "moveUp": "上移",
+  "moveDown": "下移",
   "disabled": "停用",
   "requestRewriteDeleteConfirm": "是否刪除{size}條規則?",
   "useGuide": "使用文件",

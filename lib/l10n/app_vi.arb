@@ -53,6 +53,8 @@
   "done": "Xong",
   "download": "Tải xuống",
   "edit": "Sửa",
+  "moveUp": "Di chuyển lên",
+  "moveDown": "Di chuyển xuống",
   "editReportServer": "Sửa máy chủ báo cáo",
   "editRequest": "Sửa và gửi",
   "emptyData": "Không có dữ liệu",
