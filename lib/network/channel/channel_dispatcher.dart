@@ -129,6 +129,9 @@ class ChannelDispatcher extends ChannelHandler<Uint8List> {
 
         if (remoteChannel != null) {
           await remoteChannel.writeBytes(decodeResult.forward!);
+        } else if (channelContext.isHttp2PriorKnowledge && identical(channel, channelContext.clientChannel)) {
+          channelContext.bufferHttp2Frames(decodeResult.forward!);
+          await channelContext.sendInitialHttp2Settings();
         } else {
           logger.w("[$channel] forward remoteChannel is null");
         }
@@ -153,20 +156,28 @@ class ChannelDispatcher extends ChannelHandler<Uint8List> {
       }
 
       if (data is HttpRequest) {
-        channelContext.currentRequest = data;
-        data.hostAndPort ??= channelContext.host ?? getHostAndPort(data, ssl: channel.isSsl);
-        if (data.headers.host != null && data.headers.host?.contains(":") == false) {
-          data.hostAndPort?.host = data.headers.host!;
+        if (data.protocolVersion == 'HTTP/2') {
+          final request = data;
+          final sent = channelContext.http2Requests.submit(request.streamId!, () async {
+            await prepareRequest(channelContext, channel, request);
+            if (channelContext.http2Requests.canForward(request.streamId!)) {
+              await handler.channelRead(channelContext, channel, request);
+            }
+          });
+          final guarded = sent.catchError((Object error, StackTrace trace) {
+            onError(channelContext, channel, error, trace: trace);
+          });
+          // 先排空现有帧，不能等较大流号发送后才去解析较小流号的后续 DATA。
+          if (buffer.isReadable()) await channelRead(channelContext, channel, Uint8List(0));
+          await guarded;
+          return;
         }
-
-        await _fixAndroidVpnPort(channelContext, channel, data);
-
-        data.processInfo ??= await ProcessInfoUtils.getProcessByPort(channel.remoteSocketAddress, data.remoteDomain()!);
+        await prepareRequest(channelContext, channel, data);
       }
 
       if (data is HttpResponse) {
-        data.requestId = channelContext.currentRequest?.requestId ?? data.requestId;
         data.request ??= channelContext.currentRequest;
+        data.requestId = data.request?.requestId ?? data.requestId;
       }
 
       //websocket协议
@@ -196,6 +207,9 @@ class ChannelDispatcher extends ChannelHandler<Uint8List> {
         } else {
           await channelRead(channelContext, channel, Uint8List(0));
         }
+      } else if (data is HttpMessage && data.protocolVersion == 'HTTP/2' && buffer.isReadable()) {
+        // 一个TCP读事件可能包含多个完整流；不能依赖下一次socket事件继续解码。
+        await channelRead(channelContext, channel, Uint8List(0));
       }
     } catch (error, trace) {
       onError(channelContext, channel, error, trace: trace);
@@ -203,6 +217,16 @@ class ChannelDispatcher extends ChannelHandler<Uint8List> {
       _pendingReads.remove(pending);
       if (!pending.isCompleted) pending.complete();
     }
+  }
+
+  Future<void> prepareRequest(ChannelContext channelContext, Channel channel, HttpRequest data) async {
+    channelContext.currentRequest = data;
+    data.hostAndPort ??= channelContext.host ?? getHostAndPort(data, ssl: channel.isSsl);
+    if (data.headers.host != null && data.headers.host?.contains(":") == false) {
+      data.hostAndPort?.host = data.headers.host!;
+    }
+    await _fixAndroidVpnPort(channelContext, channel, data);
+    data.processInfo ??= await ProcessInfoUtils.getProcessByPort(channel.remoteSocketAddress, data.remoteDomain()!);
   }
 
   /// 修正 Android VPN 透明代理明文 HTTP 请求的目标端口。
@@ -217,6 +241,7 @@ class ChannelDispatcher extends ChannelHandler<Uint8List> {
   Future<void> _fixAndroidVpnPort(ChannelContext channelContext, Channel channel, HttpRequest data) async {
     if (!Platform.isAndroid ||
         channel.isSsl ||
+        data.protocolVersion == 'HTTP/2' ||
         !data.uri.startsWith("/") ||
         data.headers.host?.contains(":") == true ||
         data.hostAndPort == null) {
@@ -314,6 +339,7 @@ class ChannelDispatcher extends ChannelHandler<Uint8List> {
 
   @override
   channelInactive(ChannelContext channelContext, Channel channel) async {
+    if (identical(channel, channelContext.clientChannel)) channelContext.http2Requests.close();
     await taskQueue.waitForAll();
     //等待正在处理中的读事件完成(例如 HTTP/1.1 响应写回客户端), 避免服务端关闭时提前关闭对端连接导致 socket hang up
     while (_pendingReads.isNotEmpty) {
