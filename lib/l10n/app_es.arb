@@ -242,7 +242,6 @@
   "view": "Ver",
   "cipher": "Cifrado",
   "other": "Otros",
-
   "environment": "Entorno",
   "environmentVariables": "Variables de entorno",
   "envGlobal": "Global",
@@ -251,11 +250,10 @@
   "envDeleteConfirm": "¿Eliminar este entorno?",
   "envEmptyHint": "Sin variables. Pulsa + para añadir.",
   "envUsageHint": "Usa %s en reglas o lee/escribe context.env en scripts.",
-
+  "envInsertBuiltIn": "Insert built-in variable",
   "weakNetwork": "Limitación de red",
   "weakNetworkPreset": "Preajuste",
   "weakNetworkPresetOffline": "Sin conexión",
-
   "weakNetworkPresetSlow": "Lento",
   "weakNetworkPresetWeak": "Débil",
   "weakNetworkLatency": "Latencia",

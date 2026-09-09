@@ -1185,6 +1185,9 @@ class AppLocalizationsVi extends AppLocalizations {
   String get envUsageHint => 'Dùng %s trong quy tắc hoặc đọc/ghi context.env trong script.';
 
   @override
+  String get envInsertBuiltIn => 'Insert built-in variable';
+
+  @override
   String get weakNetwork => 'Giới hạn mạng';
 
   @override

@@ -44,7 +44,7 @@ dependencies:
   scrollable_positioned_list_nic: ^0.0.2
   tray_manager: ^0.5.3
   code_forge: ^10.8.0
-  archive: ^4.0.0
+  archive: ^4.2.0
 
 dev_dependencies:
   flutter_test:

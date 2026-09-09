@@ -2404,6 +2404,12 @@ abstract class AppLocalizations {
   /// **'Reference variables as %s in rules, or read/write via context.env in scripts.'**
   String get envUsageHint;
 
+  /// No description provided for @envInsertBuiltIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Insert built-in variable'**
+  String get envInsertBuiltIn;
+
   /// No description provided for @weakNetwork.
   ///
   /// In en, this message translates to:

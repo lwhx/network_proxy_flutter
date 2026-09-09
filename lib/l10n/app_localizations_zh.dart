@@ -1178,6 +1178,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get envUsageHint => '规则中使用 %s 引用变量,脚本中通过 context.env 读写。';
 
   @override
+  String get envInsertBuiltIn => '插入内置变量';
+
+  @override
   String get weakNetwork => '网络限制';
 
   @override
@@ -2319,6 +2322,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get envUsageHint => '規則中使用 %s 引用變數,腳本中透過 context.env 讀寫。';
+
+  @override
+  String get envInsertBuiltIn => '插入內建變數';
 
   @override
   String get weakNetwork => '網路限制';

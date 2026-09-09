@@ -1191,6 +1191,9 @@ class AppLocalizationsPt extends AppLocalizations {
   String get envUsageHint => 'Reference variables as %s in rules, or read/write via context.env in scripts.';
 
   @override
+  String get envInsertBuiltIn => 'Insert built-in variable';
+
+  @override
   String get weakNetwork => 'Network Throttling';
 
   @override
@@ -1987,6 +1990,9 @@ class AppLocalizationsPtBr extends AppLocalizationsPt {
 
   @override
   String get envUsageHint => 'Use %s em regras ou leia/escreva context.env em scripts.';
+
+  @override
+  String get envInsertBuiltIn => 'Insert built-in variable';
 
   @override
   String get weakNetwork => 'Limitação de Rede';

@@ -242,7 +242,6 @@
   "view": "ดู",
   "cipher": "รหัสลับ",
   "other": "อื่นๆ",
-
   "environment": "สภาพแวดล้อม",
   "environmentVariables": "ตัวแปรสภาพแวดล้อม",
   "envGlobal": "ส่วนกลาง",
@@ -251,11 +250,10 @@
   "envDeleteConfirm": "ลบสภาพแวดล้อมนี้?",
   "envEmptyHint": "ยังไม่มีตัวแปร คลิก + เพื่อเพิ่ม",
   "envUsageHint": "ใช้ %s ในกฎ หรืออ่าน/เขียน context.env ในสคริปต์",
-
+  "envInsertBuiltIn": "Insert built-in variable",
   "weakNetwork": "จำกัดเครือข่าย",
   "weakNetworkPreset": "พรีเซ็ต",
   "weakNetworkPresetOffline": "ออฟไลน์",
-
   "weakNetworkPresetSlow": "ช้า",
   "weakNetworkPresetWeak": "อ่อน",
   "weakNetworkLatency": "หน่วงเวลา",

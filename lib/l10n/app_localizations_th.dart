@@ -1185,6 +1185,9 @@ class AppLocalizationsTh extends AppLocalizations {
   String get envUsageHint => 'ใช้ %s ในกฎ หรืออ่าน/เขียน context.env ในสคริปต์';
 
   @override
+  String get envInsertBuiltIn => 'Insert built-in variable';
+
+  @override
   String get weakNetwork => 'จำกัดเครือข่าย';
 
   @override

@@ -1186,6 +1186,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get envUsageHint => 'Usa %s en reglas o lee/escribe context.env en scripts.';
 
   @override
+  String get envInsertBuiltIn => 'Insert built-in variable';
+
+  @override
   String get weakNetwork => 'Limitación de red';
 
   @override
