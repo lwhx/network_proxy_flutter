@@ -86,6 +86,7 @@ class _DesktopHomePagePageState extends State<DesktopHomePage> implements EventL
   @override
   void onResponse(ChannelContext channelContext, HttpResponse response) {
     requestListStateKey.currentState!.addResponse(channelContext, response);
+    panel.updateResponse(response);
   }
 
   @override
